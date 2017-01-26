@@ -8,7 +8,6 @@ import ij.plugin.ChannelSplitter;
 import ij.plugin.Concatenator;
 import ij.plugin.Duplicator;
 import ij.plugin.RGBStackMerge;
-import ij.plugin.ZProjector;
 import java.awt.*;
 import java.awt.image.*;
 
@@ -75,16 +74,9 @@ public class Projector {
             this.initAngle = angle;        }
         
 	public ImagePlus run() {
-		//imp = IJ.getImage();
 		ImageProcessor ip = imp.getProcessor();
-//		if (ip.isInvertedLut() && !IJ.isMacro()) {
-//			if (!IJ.showMessageWithCancel("3D Project", ZProjector.lutMessage))
-//				return;
-//		}
-		//if (!showDialog())
-		//	return;
 		imp.startTiming();
-		//isRGB = imp.getType()==ImagePlus.COLOR_RGB;
+		
 		if (imp.isHyperStack()) {
 			if (imp.getNSlices()>1)
 				doHyperstackProjections();
@@ -92,11 +84,7 @@ public class Projector {
 				IJ.error("Hyperstack Z dimension must be greater than 1");
 			return imp;
 		}
-//		if (interpolate && sliceInterval>1.0) {
-//			imp = zScale(imp, true);
-//			if (imp==null) return;
-//			sliceInterval = 1.0;
-//		}
+
 		if (isRGB)
 			doRGBProjections(imp);
 		else {
@@ -107,67 +95,6 @@ public class Projector {
                 return imp;
 	}
 
-//	private boolean showDialog() {
-//		ImageProcessor ip = imp.getProcessor();
-//		double lower = ip.getMinThreshold();
-//		if (lower!=ImageProcessor.NO_THRESHOLD) {
-//			transparencyLower = (int)lower;
-//			transparencyUpper = (int)ip.getMaxThreshold();
-//		}
-//		Calibration cal = imp.getCalibration();
-//		boolean hyperstack = imp.isHyperStack() && imp.getNFrames()>1;
-//		GenericDialog gd = new GenericDialog("3D Projection");
-//		gd.addChoice("Projection method:", methodList, methodList[projectionMethod]);
-//		gd.addChoice("Axis of rotation:", axisList, axisList[axisOfRotation]);
-//		//gd.addMessage("");
-//		gd.addNumericField("Slice spacing ("+cal.getUnits()+"):",cal.pixelDepth,2); 
-//
-//		gd.addNumericField("Initial angle (0-359 degrees):", initAngle, 0);
-//		gd.addNumericField("Total rotation (0-359 degrees):", totalAngle, 0);
-//		gd.addNumericField("Rotation angle increment:", angleInc, 0);
-//		gd.addNumericField("Lower transparency bound:", transparencyLower, 0);
-//		gd.addNumericField("Upper transparency bound:", transparencyUpper, 0);
-//		gd.addNumericField("Opacity (0-100%):", opacity, 0);
-//		gd.addNumericField("Surface depth-cueing (0-100%):", 100-depthCueSurf, 0);
-//		gd.addNumericField("Interior depth-cueing (0-100%):", 100-depthCueInt, 0);
-//		gd.addCheckbox("Interpolate", interpolate);
-//		if (hyperstack)
-//			gd.addCheckbox("All time points", allTimePoints);
-//		//gd.addCheckbox("Debug Mode:", debugMode);
-//
-//		gd.addHelp(IJ.URL+"/docs/menus/image.html#project");
-//		gd.showDialog();
-//		if (gd.wasCanceled())
-//			return false;;
-//		projectionMethod = gd.getNextChoiceIndex();
-//		axisOfRotation = gd.getNextChoiceIndex();
-//		cal.pixelDepth = gd.getNextNumber();
-//		if (cal.pixelWidth==0.0) cal.pixelWidth = 1.0;
-//		sliceInterval = cal.pixelDepth/cal.pixelWidth;
-//		initAngle =  (int)gd.getNextNumber();
-//		totalAngle =  (int)gd.getNextNumber();
-//		angleInc =  (int)gd.getNextNumber();
-//		transparencyLower =  (int)gd.getNextNumber();
-//		transparencyUpper =  (int)gd.getNextNumber();
-//		opacity =  (int)gd.getNextNumber();
-//		depthCueSurf =  100-(int)gd.getNextNumber();
-//		depthCueInt =  100-(int)gd.getNextNumber();
-//		interpolate =  gd.getNextBoolean();
-//		if (hyperstack)
-//			allTimePoints =  gd.getNextBoolean();
-//		//debugMode =  gd.getNextBoolean();
-//		axisOfRotationS = axisOfRotation;
-//		projectionMethodS = projectionMethod;
-//		initAngleS = initAngle;
-//		totalAngleS = totalAngle;
-//		angleIncS = angleInc;
-//		opacityS = opacity;
-//		depthCueSurfS = depthCueSurf;
-//		depthCueIntS = depthCueInt;
-//		interpolateS = interpolate;
-//		allTimePointsS = allTimePoints;
-//		return true;
-//    }
     	
 	public ImagePlus doHyperstackProjections() {
 		double originalSliceInterval = sliceInterval;

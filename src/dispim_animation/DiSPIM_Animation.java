@@ -37,8 +37,8 @@ public class DiSPIM_Animation {
     public static void main(String[] args) {
         // TODO add ability to choose pause point, in case best expression is in the middle of time series
         // TODO figure out way to get min max for both channels automatically
-        // TODO create hyperstack from tifs
         // TODO draw lines on bottom of stack to better highlight rotation
+        
         String directory = args[0];
         directory += "/MVR_STACKS/";
 
@@ -48,7 +48,7 @@ public class DiSPIM_Animation {
         int z = Integer.parseInt(args[4]);
         DiSPIM_Animation d = new DiSPIM_Animation(directory, channel1Min, channel1Max, rotating, z);
         
-        //d.project();
+        d.project();
         d.createStack();
     }
 
@@ -184,8 +184,7 @@ public class DiSPIM_Animation {
                 test.saveAsTiff(animationDir.getPath() + File.separator + "anim_min" + i + ".tif");
 
             }
-            ch1.flush();
-            ch2.flush();
+
             comp.flush();
         }
     }
@@ -194,7 +193,8 @@ public class DiSPIM_Animation {
         FolderOpener fo = new FolderOpener();
         ImagePlus img = fo.openFolder(directory + File.separator + "animation" + File.separator);
         ImagePlus hyp = HyperStackConverter.toHyperStack(img, 2, 1, img.getStack().getSize() / 2);
-
+        
+        
 //        hyp.setT(hyp.getNFrames());
 //        hyp.setC(2);
 //        //hyp.setLut(LUT.createLutFromColor(Color.green));
