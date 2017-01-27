@@ -16,8 +16,7 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Comparator;
 import mcib3d.geom.ObjectCreator3D;
-import mcib3d.image3d.ImageHandler;
-import mcib3d.image3d.ImageShort;
+import mcib3d.geom.Point3D;
 import net.imglib2.img.Img;
 import net.imglib2.img.display.imagej.ImageJFunctions;
 
@@ -42,7 +41,7 @@ public class DiSPIM_Animation {
         // TODO add ability to choose pause point, in case best expression is in the middle of time series
         // TODO figure out way to get min max for both channels automatically
         // TODO draw lines on bottom of stack to better highlight rotation
-        
+
         String directory = args[0];
         directory += "/MVR_STACKS/";
 
@@ -51,7 +50,7 @@ public class DiSPIM_Animation {
         int rotating = Integer.parseInt(args[3]);
         int z = Integer.parseInt(args[4]);
         DiSPIM_Animation d = new DiSPIM_Animation(directory, channel1Min, channel1Max, rotating, z);
-        
+
         d.project();
         //d.createStack();
     }
@@ -144,30 +143,19 @@ public class DiSPIM_Animation {
             double ch2Min = ip2.getMin();
             double ch2Max = ip2.getMax();
 
-
             ip2.setMinAndMax(ch2Min, ch2Max);
             ip1.setMinAndMax(channel1Min, channel1Max);
 //            for (int k = 0; k < ip2.getWidth(); k++) {
 //                ip2.putPixel(k, 10, 65000);
 //            } // this works
-            
 
             //Draw box on lineage channel
-            int buffer = 10;
-            //ImageStack ch2Stack = ch2Mult.getStack();
-            ImageShort is = new ImageShort(ch2Mult);
-            ObjectCreator3D o = new ObjectCreator3D(is);
-            
-            o.createBrick(ch2Mult.getWidth()/2, ch2Mult.getHeight()/2, ch2Mult.getNSlices()/2, ch2Mult.getWidth() - buffer, 
-                    ch2Mult.getHeight() - buffer, ch2Mult.getNSlices() - buffer, 255);
-            
-            
+            drawBox(ch2Mult);
+
             //FileSaver brickTest = new FileSaver(ch2Mult);
             //brickTest.saveAsTiffStack(animationDir.getPath() + File.separator + "test" + i +".tif");
-            
-            ImagePlus[] images = new ImagePlus[] {ch2Mult, ch1Mult};
+            ImagePlus[] images = new ImagePlus[]{ch2Mult, ch1Mult};
             ImagePlus comp = RGBStackMerge.mergeChannels(images, false);
-            
 
             ch1.flush();
             ch2.flush();
@@ -176,7 +164,7 @@ public class DiSPIM_Animation {
             hdf.flush();
             //FileSaver comptest = new FileSaver(comp);
             //comptest.saveAsTiffStack(animationDir.getPath() + File.separator + "test" + i +".tif");
-            
+
             //Rotate image
             int rotationFactor = 3;
             int angle = i * rotationFactor;
@@ -204,7 +192,6 @@ public class DiSPIM_Animation {
                 Projector proj = new Projector(comp, angle);
                 ImagePlus projection = proj.doHyperstackProjections();
                 //IJ.run(projection, "Properties...", "channels=2 slices=1 frames=1 unit=pixel pixel_width=1.0000 pixel_height=1.0000 voxel_depth=1.0000");
-
                 FileSaver test = new FileSaver(projection);
                 test.saveAsTiff(animationDir.getPath() + File.separator + "anim_min" + i + ".tif");
 
@@ -213,13 +200,12 @@ public class DiSPIM_Animation {
             comp.flush();
         }
     }
-    
+
     private void createStack() {
         FolderOpener fo = new FolderOpener();
         ImagePlus img = fo.openFolder(directory + File.separator + "animation" + File.separator);
         ImagePlus hyp = HyperStackConverter.toHyperStack(img, 2, 1, img.getStack().getSize() / 2);
 
-        
 //        hyp.setT(hyp.getNFrames());
 //        hyp.setC(2);
 //        //hyp.setLut(LUT.createLutFromColor(Color.green));
@@ -231,8 +217,44 @@ public class DiSPIM_Animation {
 //        Double max = is.max;
 //        ip.setMinAndMax(min, max);
 //        hyp.setDisplayRange(min, max);
-
         //FileSaver test = new FileSaver(drawn);
         //test.saveAsTiffStack(directory + File.separator + "animation" + File.separator + "anim_hyperstack.tif");        
+    }
+
+    private void drawBox(ImagePlus img) {
+
+        int buffer = 5;
+        int minX = 0 + buffer;
+        int minY = 0 + buffer;
+        int minZ = 0 + buffer;
+        int maxX = img.getWidth() - buffer;
+        int maxY = img.getHeight() - buffer;
+        int maxZ = img.getNSlices() - buffer;
+
+        Point3D A = new Point3D((double) minX, (double) minY, (double) minZ);
+        Point3D B = new Point3D((double) minX, (double) maxY, (double) minZ);
+        Point3D C = new Point3D((double) maxX, (double) maxY, (double) minZ);
+        Point3D D = new Point3D((double) maxX, (double) minY, (double) minZ);
+        Point3D E = new Point3D((double) minX, (double) minY, (double) maxZ);
+        Point3D F = new Point3D((double) minX, (double) maxY, (double) maxZ);
+        Point3D G = new Point3D((double) maxX, (double) maxY, (double) maxZ);
+        Point3D H = new Point3D((double) maxX, (double) minY, (double) maxZ);
+
+        //AB, BC, CD, DA, EF, FG, GH, HE, AE, DH, BF, CG
+        ImageStack stack = img.getStack();
+        ObjectCreator3D o = new ObjectCreator3D(stack);
+        o.createLine(A, B, 65535, 1);
+        o.createLine(B, C, 65535, 1);
+        o.createLine(C, D, 65535, 1);
+        o.createLine(D, A, 65535, 1);
+        o.createLine(E, F, 65535, 1);
+        o.createLine(F, G, 65535, 1);
+        o.createLine(G, H, 65535, 1);
+        o.createLine(H, E, 65535, 1);
+        o.createLine(A, E, 65535, 1);
+        o.createLine(D, H, 65535, 1);
+        o.createLine(B, F, 65535, 1);
+        o.createLine(C, G, 65535, 1);
+
     }
 }
