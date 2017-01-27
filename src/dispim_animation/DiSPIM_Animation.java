@@ -15,6 +15,9 @@ import java.io.FilenameFilter;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Comparator;
+import mcib3d.geom.ObjectCreator3D;
+import mcib3d.image3d.ImageHandler;
+import mcib3d.image3d.ImageShort;
 import net.imglib2.img.Img;
 import net.imglib2.img.display.imagej.ImageJFunctions;
 
@@ -35,6 +38,7 @@ public class DiSPIM_Animation {
     }
 
     public static void main(String[] args) {
+        // TODO need to add the ability to select lineage channel!
         // TODO add ability to choose pause point, in case best expression is in the middle of time series
         // TODO figure out way to get min max for both channels automatically
         // TODO draw lines on bottom of stack to better highlight rotation
@@ -49,7 +53,7 @@ public class DiSPIM_Animation {
         DiSPIM_Animation d = new DiSPIM_Animation(directory, channel1Min, channel1Max, rotating, z);
         
         d.project();
-        d.createStack();
+        //d.createStack();
     }
 
     public void project() {
@@ -111,7 +115,7 @@ public class DiSPIM_Animation {
             }
         }
 
-        for (int i = 0; i < lastTimepoint; i++) {
+        for (int i = 300; i < 305; i++) {
             String filename1 = sortedFiles.get(i).getPath();
             ImagePlus ch1 = new ImagePlus(filename1);
 
@@ -133,7 +137,6 @@ public class DiSPIM_Animation {
             ImageCalculator ic = new ImageCalculator();
             ImagePlus ch1Mult = ic.run("Multiply create stack", ch1, hdf);
             ImagePlus ch2Mult = ic.run("Multiply create stack", ch2, hdf);
-            //IJ.saveAsTiff(fin, "/net/waterston/vol9/diSPIM/20161214_vab-15_XIL099/" + i + "test.tif");
 
             ch2.setSlice(zplane);
             ImageProcessor ip2 = ch2Mult.getProcessor();
@@ -141,18 +144,40 @@ public class DiSPIM_Animation {
             double ch2Min = ip2.getMin();
             double ch2Max = ip2.getMax();
 
-            ch1.flush();
-            ch2.flush();
-            hdf.flush();
 
             ip2.setMinAndMax(ch2Min, ch2Max);
             ip1.setMinAndMax(channel1Min, channel1Max);
+//            for (int k = 0; k < ip2.getWidth(); k++) {
+//                ip2.putPixel(k, 10, 65000);
+//            } // this works
+            
 
-            ImagePlus[] images = new ImagePlus[]{ch2Mult, ch1Mult};
+            //Draw box on lineage channel
+            int buffer = 10;
+            //ImageStack ch2Stack = ch2Mult.getStack();
+            ImageShort is = new ImageShort(ch2Mult);
+            ObjectCreator3D o = new ObjectCreator3D(is);
+            
+            o.createBrick(ch2Mult.getWidth()/2, ch2Mult.getHeight()/2, ch2Mult.getNSlices()/2, ch2Mult.getWidth() - buffer, 
+                    ch2Mult.getHeight() - buffer, ch2Mult.getNSlices() - buffer, 255);
+            
+            
+            //FileSaver brickTest = new FileSaver(ch2Mult);
+            //brickTest.saveAsTiffStack(animationDir.getPath() + File.separator + "test" + i +".tif");
+            
+            ImagePlus[] images = new ImagePlus[] {ch2Mult, ch1Mult};
             ImagePlus comp = RGBStackMerge.mergeChannels(images, false);
+            
 
+            ch1.flush();
+            ch2.flush();
+            ch2Mult.flush();
+            ch1Mult.flush();
+            hdf.flush();
             //FileSaver comptest = new FileSaver(comp);
             //comptest.saveAsTiffStack(animationDir.getPath() + File.separator + "test" + i +".tif");
+            
+            //Rotate image
             int rotationFactor = 3;
             int angle = i * rotationFactor;
             int counter = i / (360 / rotationFactor);
@@ -188,12 +213,12 @@ public class DiSPIM_Animation {
             comp.flush();
         }
     }
-
-    public void createStack() {
+    
+    private void createStack() {
         FolderOpener fo = new FolderOpener();
         ImagePlus img = fo.openFolder(directory + File.separator + "animation" + File.separator);
         ImagePlus hyp = HyperStackConverter.toHyperStack(img, 2, 1, img.getStack().getSize() / 2);
-        
+
         
 //        hyp.setT(hyp.getNFrames());
 //        hyp.setC(2);
@@ -206,8 +231,8 @@ public class DiSPIM_Animation {
 //        Double max = is.max;
 //        ip.setMinAndMax(min, max);
 //        hyp.setDisplayRange(min, max);
-        FileSaver test = new FileSaver(hyp);
-        test.saveAsTiffStack(directory + File.separator + "animation" + File.separator + "anim_hyperstack.tif");
 
+        //FileSaver test = new FileSaver(drawn);
+        //test.saveAsTiffStack(directory + File.separator + "animation" + File.separator + "anim_hyperstack.tif");        
     }
 }
