@@ -28,6 +28,7 @@ public class DiSPIM_Animation {
     //final private int rotatingTimepoint;
     final private int zplane;
     private int stackSize;
+    final private boolean rotate = false;
 
     public DiSPIM_Animation(String dir, double min1, double max1, int zplane) {
         this.directory = dir;
@@ -105,9 +106,9 @@ public class DiSPIM_Animation {
 
             String filename2 = filename1.replace("Ch1", "Ch2");
             ImagePlus ch2 = new ImagePlus(filename2);
-            
+
             stackSize = ch2.getNSlices();
-            
+
             for (int j = 0; j < ch1.getNSlices(); j++) {
                 ch1.setSlice(j);
                 ImageProcessor i1 = ch1.getProcessor();
@@ -133,8 +134,7 @@ public class DiSPIM_Animation {
             ip2.setMinAndMax(ch2Min, ch2Max);
             ip1.setMinAndMax(channel1Min, channel1Max);
 
-            drawBox(ch2Mult, 1024);
-
+            //drawBox(ch2Mult, 1024);
             ImagePlus[] images = new ImagePlus[]{ch2Mult, ch1Mult};
             ImagePlus comp = RGBStackMerge.mergeChannels(images, false);
 
@@ -144,34 +144,43 @@ public class DiSPIM_Animation {
             ch1Mult.flush();
             hdf.flush();
 
-            //Rotate image
-            int rotationFactor = 1;
-            int angle = i * rotationFactor;
-            int counter = i / (360 / rotationFactor);
-            if ((i * rotationFactor) >= 360) {
-                angle = (i * rotationFactor) - (360 * counter);
-            }
-
-            //After channel merging, branch on whether timepoint is the last timepoint
-            if (i == lastTimepoint - 1) {
-                for (int j = i; j < lastTimepoint * 2; j++) {
-                    angle = j * rotationFactor;
-                    if ((j * rotationFactor) >= 360) {
-                        angle = (j * rotationFactor) - (360 * counter);
-                    }
-
-                    Projector proj2 = new Projector(comp, angle);
-                    ImagePlus projection2 = proj2.doHyperstackProjections();
-                    System.out.println("Saved anim_min" + j + ".tif");
+            if (rotate) {
+                //Rotate image
+                int rotationFactor = 1;
+                int angle = i * rotationFactor;
+                int counter = i / (360 / rotationFactor);
+                if ((i * rotationFactor) >= 360) {
+                    angle = (i * rotationFactor) - (360 * counter);
                 }
 
-            } else {
-                Projector proj = new Projector(comp, angle);
-                ImagePlus projection = proj.doHyperstackProjections();
-                
-                FileSaver test = new FileSaver(projection);
-                test.saveAsTiff(animationDir.getPath() + File.separator + "anim_min" + i + ".tif");
+                //After channel merging, branch on whether timepoint is the last timepoint
+                if (i == lastTimepoint - 1) {
+                    for (int j = i; j < lastTimepoint * 2; j++) {
+                        angle = j * rotationFactor;
+                        if ((j * rotationFactor) >= 360) {
+                            angle = (j * rotationFactor) - (360 * counter);
+                        }
 
+                        //Projector proj2 = new Projector(comp, angle);
+                        //ImagePlus projection2 = proj2.doHyperstackProjections();
+                        System.out.println("Saved anim_min" + j + ".tif");
+                    }
+
+                } else {
+                    Projector proj = new Projector(comp, angle);
+                    ImagePlus projection = proj.doHyperstackProjections();
+
+                    FileSaver test = new FileSaver(projection);
+                    test.saveAsTiff(animationDir.getPath() + File.separator + "anim_min" + i + ".tif");
+
+                }
+            } else {
+                    
+                Projector proj = new Projector(comp, 0);
+                ImagePlus projection = proj.doHyperstackProjections();
+                FileSaver compSaver = new FileSaver(projection);
+                compSaver.saveAsTiff(animationDir.getPath() + File.separator + "anim_min" + i + ".tif");
+                System.out.println("Saved anim_min" + i + ".tif");
             }
 
             comp.flush();
@@ -182,7 +191,7 @@ public class DiSPIM_Animation {
         FolderOpener fo = new FolderOpener();
         ImagePlus img = fo.openFolder(directory + File.separator + "animation" + File.separator);
         ImagePlus hyp = HyperStackConverter.toHyperStack(img, 2, 1, img.getStack().getSize() / 2);
-        
+
 //        LUT l1 = LutLoader.openLut("/nfs/waterston/pete/luts/GreenFireBlue.lut");
 //        LUT l2 = LutLoader.openLut("/nfs/waterston/pete/luts/neon-red.lut");
 //
@@ -192,10 +201,8 @@ public class DiSPIM_Animation {
 //            ImageProcessor ip = hyp.getProcessor();
 //            ip.setLut(l1);
 //        }
-        
-
         FileSaver fin = new FileSaver(hyp);
-        fin.saveAsTiffStack(directory + File.separator + "animation" + File.separator + "anim_hyperstack.tif");   
+        fin.saveAsTiffStack(directory + File.separator + "animation" + File.separator + "anim_hyperstack.tif");
 
 //        hyp.setT(hyp.getNFrames());
 //        hyp.setC(2);
