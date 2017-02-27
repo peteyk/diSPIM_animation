@@ -22,7 +22,7 @@ contributed by Michael Castle of the  University of Michigan Mental Health Resea
 
 public class Projector {
 
-	private  final int xAxis=0, yAxis=1, zAxis=2;
+	final int xAxis=0, yAxis=1, zAxis=2;
 	private  final int nearestPoint=0, brightestPoint=1, meanValue=2;
 	private  final int BIGPOWEROF2 = 8192;
 	private  final String[] axisList = {"X-Axis", "Y-Axis", "Z-Axis"};
@@ -34,8 +34,8 @@ public class Projector {
 	private  int totalAngleS = 0;
 	private  int angleIncS = 3;
 	private  int opacityS = 0;
-	private  int depthCueSurfS = 100;
-	private  int depthCueIntS = 30;
+	private  int depthCueSurfS = 75;
+	private  int depthCueIntS = 0;
 	private  boolean interpolateS = true;
 	private  boolean allTimePointsS = false;
 
@@ -71,7 +71,9 @@ public class Projector {
         
         public Projector(ImagePlus img, int angle) {
             this.imp = img;
-            this.initAngle = angle;        }
+            this.initAngle = angle;   
+
+        }
         
 	public ImagePlus run() {
 		ImageProcessor ip = imp.getProcessor();

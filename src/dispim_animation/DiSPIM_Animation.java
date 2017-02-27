@@ -15,6 +15,8 @@ import java.io.FilenameFilter;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Comparator;
+import mcib3d.geom.ObjectCreator3D;
+import mcib3d.geom.Point3D;
 import net.imglib2.img.Img;
 import net.imglib2.img.display.imagej.ImageJFunctions;
 
@@ -23,31 +25,29 @@ public class DiSPIM_Animation {
     final private String directory;
     final private double channel1Min;
     final private double channel1Max;
-    final private int rotatingTimepoint;
+    //final private int rotatingTimepoint;
     final private int zplane;
+    private int stackSize;
+    final private boolean rotate = false;
 
-    public DiSPIM_Animation(String dir, double min1, double max1, int rotatingTimepoint, int zplane) {
+    public DiSPIM_Animation(String dir, double min1, double max1, int zplane) {
         this.directory = dir;
         this.channel1Min = min1;
         this.channel1Max = max1;
-        this.rotatingTimepoint = rotatingTimepoint;
         this.zplane = zplane;
     }
 
     public static void main(String[] args) {
-        // TODO add ability to choose pause point, in case best expression is in the middle of time series
-        // TODO figure out way to get min max for both channels automatically
-        // TODO draw lines on bottom of stack to better highlight rotation
-        
+        // TODO need to add the ability to select lineage channel!
+
         String directory = args[0];
         directory += "/MVR_STACKS/";
 
         double channel1Min = Double.parseDouble(args[1]);
         double channel1Max = Double.parseDouble(args[2]);
-        int rotating = Integer.parseInt(args[3]);
-        int z = Integer.parseInt(args[4]);
-        DiSPIM_Animation d = new DiSPIM_Animation(directory, channel1Min, channel1Max, rotating, z);
-        
+        int z = Integer.parseInt(args[3]);
+        DiSPIM_Animation d = new DiSPIM_Animation(directory, channel1Min, channel1Max, z);
+
         d.project();
         d.createStack();
     }
@@ -85,17 +85,6 @@ public class DiSPIM_Animation {
             }
         });
 
-        ImagePlus query = new ImagePlus(dirFiles[0].getPath());
-
-        int width = query.getWidth();
-        int height = query.getHeight();
-        int nSlices = query.getNSlices();
-
-        int projwidth = (int) (Math.sqrt(nSlices * nSlices * +width * width) + 0.5);
-        int projheight = (int) (Math.sqrt(nSlices * nSlices * +height * height) + 0.5);
-        query.flush();
-        ImageStack anim = new ImageStack(projwidth, projheight);
-
         RankFilters rf = new RankFilters();
 
         int lastTimepoint = 0;
@@ -118,6 +107,8 @@ public class DiSPIM_Animation {
             String filename2 = filename1.replace("Ch1", "Ch2");
             ImagePlus ch2 = new ImagePlus(filename2);
 
+            stackSize = ch2.getNSlices();
+
             for (int j = 0; j < ch1.getNSlices(); j++) {
                 ch1.setSlice(j);
                 ImageProcessor i1 = ch1.getProcessor();
@@ -128,12 +119,11 @@ public class DiSPIM_Animation {
             HDF5Image image = new HDF5Image(file, "exported_data", 70);
             Img img = image.getImage();
             ImagePlus hdf = ImageJFunctions.wrap(img, "");
-            IJ.run(hdf, "Properties...", "channels=1 slices=257 frames=1 unit=pixel pixel_width=1.0000 pixel_height=1.0000 voxel_depth=1.0000");
+            IJ.run(hdf, "Properties...", "channels=1 slices=" + stackSize + " frames=1 unit=pixel pixel_width=1.0000 pixel_height=1.0000 voxel_depth=1.0000");
 
             ImageCalculator ic = new ImageCalculator();
             ImagePlus ch1Mult = ic.run("Multiply create stack", ch1, hdf);
             ImagePlus ch2Mult = ic.run("Multiply create stack", ch2, hdf);
-            //IJ.saveAsTiff(fin, "/net/waterston/vol9/diSPIM/20161214_vab-15_XIL099/" + i + "test.tif");
 
             ch2.setSlice(zplane);
             ImageProcessor ip2 = ch2Mult.getProcessor();
@@ -141,60 +131,79 @@ public class DiSPIM_Animation {
             double ch2Min = ip2.getMin();
             double ch2Max = ip2.getMax();
 
-            ch1.flush();
-            ch2.flush();
-            hdf.flush();
-
             ip2.setMinAndMax(ch2Min, ch2Max);
             ip1.setMinAndMax(channel1Min, channel1Max);
 
+            //drawBox(ch2Mult, 1024);
             ImagePlus[] images = new ImagePlus[]{ch2Mult, ch1Mult};
             ImagePlus comp = RGBStackMerge.mergeChannels(images, false);
 
-            //FileSaver comptest = new FileSaver(comp);
-            //comptest.saveAsTiffStack(animationDir.getPath() + File.separator + "test" + i +".tif");
-            int rotationFactor = 3;
-            int angle = i * rotationFactor;
-            int counter = i / (360 / rotationFactor);
-            if ((i * rotationFactor) >= 360) {
-                angle = (i * rotationFactor) - (360 * counter);
-            }
+            ch1.flush();
+            ch2.flush();
+            ch2Mult.flush();
+            ch1Mult.flush();
+            hdf.flush();
 
-            //After channel merging, branch on whether timepoint is the last timepoint
-            if (i == (dirFiles.length) - 1) {
-                for (int j = i; j < dirFiles.length * 2; j++) {
-                    angle = j * rotationFactor;
-                    if ((j * rotationFactor) >= 360) {
-                        angle = (j * rotationFactor) - (360 * counter);
-                    }
-
-                    Projector proj2 = new Projector(comp, angle);
-                    ImagePlus projection2 = proj2.doHyperstackProjections();
-                    FileSaver test = new FileSaver(projection2);
-                    test.saveAsTiff(animationDir.getPath() + File.separator + "anim_min" + j + ".tif");
-                    System.out.println("Saved anim_min" + j + ".tif");
+            if (rotate) {
+                //Rotate image
+                int rotationFactor = 1;
+                int angle = i * rotationFactor;
+                int counter = i / (360 / rotationFactor);
+                if ((i * rotationFactor) >= 360) {
+                    angle = (i * rotationFactor) - (360 * counter);
                 }
 
+                //After channel merging, branch on whether timepoint is the last timepoint
+                if (i == lastTimepoint - 1) {
+                    for (int j = i; j < lastTimepoint * 2; j++) {
+                        angle = j * rotationFactor;
+                        if ((j * rotationFactor) >= 360) {
+                            angle = (j * rotationFactor) - (360 * counter);
+                        }
+
+                        //Projector proj2 = new Projector(comp, angle);
+                        //ImagePlus projection2 = proj2.doHyperstackProjections();
+                        System.out.println("Saved anim_min" + j + ".tif");
+                    }
+
+                } else {
+                    Projector proj = new Projector(comp, angle);
+                    ImagePlus projection = proj.doHyperstackProjections();
+
+                    FileSaver test = new FileSaver(projection);
+                    test.saveAsTiff(animationDir.getPath() + File.separator + "anim_min" + i + ".tif");
+
+                }
             } else {
-                Projector proj = new Projector(comp, angle);
+                    
+                Projector proj = new Projector(comp, 0);
                 ImagePlus projection = proj.doHyperstackProjections();
-                //IJ.run(projection, "Properties...", "channels=2 slices=1 frames=1 unit=pixel pixel_width=1.0000 pixel_height=1.0000 voxel_depth=1.0000");
-
-                FileSaver test = new FileSaver(projection);
-                test.saveAsTiff(animationDir.getPath() + File.separator + "anim_min" + i + ".tif");
-
+                FileSaver compSaver = new FileSaver(projection);
+                compSaver.saveAsTiff(animationDir.getPath() + File.separator + "anim_min" + i + ".tif");
+                System.out.println("Saved anim_min" + i + ".tif");
             }
 
             comp.flush();
         }
     }
 
-    public void createStack() {
+    private void createStack() {
         FolderOpener fo = new FolderOpener();
         ImagePlus img = fo.openFolder(directory + File.separator + "animation" + File.separator);
         ImagePlus hyp = HyperStackConverter.toHyperStack(img, 2, 1, img.getStack().getSize() / 2);
-        
-        
+
+//        LUT l1 = LutLoader.openLut("/nfs/waterston/pete/luts/GreenFireBlue.lut");
+//        LUT l2 = LutLoader.openLut("/nfs/waterston/pete/luts/neon-red.lut");
+//
+//        for (int i = 1; i <= hyp.getNFrames(); i++) {
+//            hyp.setT(i);
+//            hyp.setC(2);
+//            ImageProcessor ip = hyp.getProcessor();
+//            ip.setLut(l1);
+//        }
+        FileSaver fin = new FileSaver(hyp);
+        fin.saveAsTiffStack(directory + File.separator + "animation" + File.separator + "anim_hyperstack.tif");
+
 //        hyp.setT(hyp.getNFrames());
 //        hyp.setC(2);
 //        //hyp.setLut(LUT.createLutFromColor(Color.green));
@@ -206,8 +215,42 @@ public class DiSPIM_Animation {
 //        Double max = is.max;
 //        ip.setMinAndMax(min, max);
 //        hyp.setDisplayRange(min, max);
-        FileSaver test = new FileSaver(hyp);
-        test.saveAsTiffStack(directory + File.separator + "animation" + File.separator + "anim_hyperstack.tif");
+    }
 
+    private void drawBox(ImagePlus img, int maxIntensity) {
+
+        int buffer = 25;
+        int minX = 0 + buffer;
+        int minY = 0 + buffer;
+        int minZ = 0 + buffer;
+        int maxX = img.getWidth() - buffer;
+        int maxY = img.getHeight() - buffer;
+        int maxZ = img.getNSlices() - buffer;
+
+        Point3D A = new Point3D((double) minX, (double) minY, (double) minZ);
+        Point3D B = new Point3D((double) minX, (double) maxY, (double) minZ);
+        Point3D C = new Point3D((double) maxX, (double) maxY, (double) minZ);
+        Point3D D = new Point3D((double) maxX, (double) minY, (double) minZ);
+        Point3D E = new Point3D((double) minX, (double) minY, (double) maxZ);
+        Point3D F = new Point3D((double) minX, (double) maxY, (double) maxZ);
+        Point3D G = new Point3D((double) maxX, (double) maxY, (double) maxZ);
+        Point3D H = new Point3D((double) maxX, (double) minY, (double) maxZ);
+
+        //AB, BC, CD, DA, EF, FG, GH, HE, AE, DH, BF, CG
+        ImageStack stack = img.getStack();
+        ObjectCreator3D o = new ObjectCreator3D(stack);
+        int rad = 1;
+        o.createLine(A, B, maxIntensity, rad);
+        o.createLine(B, C, maxIntensity, rad);
+        o.createLine(C, D, maxIntensity, rad);
+        o.createLine(D, A, maxIntensity, rad);
+        o.createLine(E, F, maxIntensity, rad);
+        o.createLine(F, G, maxIntensity, rad);
+        o.createLine(G, H, maxIntensity, rad);
+        o.createLine(H, E, maxIntensity, rad);
+        o.createLine(A, E, maxIntensity, rad);
+        o.createLine(D, H, maxIntensity, rad);
+        o.createLine(B, F, maxIntensity, rad);
+        o.createLine(C, G, maxIntensity, rad);
     }
 }
