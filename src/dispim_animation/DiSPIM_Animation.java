@@ -25,30 +25,27 @@ public class DiSPIM_Animation {
     final private String directory;
     final private double channel1Min;
     final private double channel1Max;
-    final private int rotatingTimepoint;
+    //final private int rotatingTimepoint;
     final private int zplane;
+    private int stackSize;
 
-    public DiSPIM_Animation(String dir, double min1, double max1, int rotatingTimepoint, int zplane) {
+    public DiSPIM_Animation(String dir, double min1, double max1, int zplane) {
         this.directory = dir;
         this.channel1Min = min1;
         this.channel1Max = max1;
-        this.rotatingTimepoint = rotatingTimepoint;
         this.zplane = zplane;
     }
 
     public static void main(String[] args) {
         // TODO need to add the ability to select lineage channel!
-        // TODO dont freeze any timepoints, show entire series
-        // TODO add ability to choose pause point, in case best expression is in the middle of time series
 
         String directory = args[0];
         directory += "/MVR_STACKS/";
 
         double channel1Min = Double.parseDouble(args[1]);
         double channel1Max = Double.parseDouble(args[2]);
-        int rotating = Integer.parseInt(args[3]);
-        int z = Integer.parseInt(args[4]);
-        DiSPIM_Animation d = new DiSPIM_Animation(directory, channel1Min, channel1Max, rotating, z);
+        int z = Integer.parseInt(args[3]);
+        DiSPIM_Animation d = new DiSPIM_Animation(directory, channel1Min, channel1Max, z);
 
         d.project();
         d.createStack();
@@ -108,7 +105,9 @@ public class DiSPIM_Animation {
 
             String filename2 = filename1.replace("Ch1", "Ch2");
             ImagePlus ch2 = new ImagePlus(filename2);
-
+            
+            stackSize = ch2.getNSlices();
+            
             for (int j = 0; j < ch1.getNSlices(); j++) {
                 ch1.setSlice(j);
                 ImageProcessor i1 = ch1.getProcessor();
@@ -119,7 +118,7 @@ public class DiSPIM_Animation {
             HDF5Image image = new HDF5Image(file, "exported_data", 70);
             Img img = image.getImage();
             ImagePlus hdf = ImageJFunctions.wrap(img, "");
-            IJ.run(hdf, "Properties...", "channels=1 slices=257 frames=1 unit=pixel pixel_width=1.0000 pixel_height=1.0000 voxel_depth=1.0000");
+            IJ.run(hdf, "Properties...", "channels=1 slices=" + stackSize + " frames=1 unit=pixel pixel_width=1.0000 pixel_height=1.0000 voxel_depth=1.0000");
 
             ImageCalculator ic = new ImageCalculator();
             ImagePlus ch1Mult = ic.run("Multiply create stack", ch1, hdf);
@@ -134,7 +133,7 @@ public class DiSPIM_Animation {
             ip2.setMinAndMax(ch2Min, ch2Max);
             ip1.setMinAndMax(channel1Min, channel1Max);
 
-            drawBox(ch2Mult, 4096);
+            drawBox(ch2Mult, 1024);
 
             ImagePlus[] images = new ImagePlus[]{ch2Mult, ch1Mult};
             ImagePlus comp = RGBStackMerge.mergeChannels(images, false);
@@ -144,11 +143,9 @@ public class DiSPIM_Animation {
             ch2Mult.flush();
             ch1Mult.flush();
             hdf.flush();
-            //FileSaver comptest = new FileSaver(comp);
-            //comptest.saveAsTiffStack(animationDir.getPath() + File.separator + "test" + i +".tif");
 
             //Rotate image
-            int rotationFactor = 2;
+            int rotationFactor = 1;
             int angle = i * rotationFactor;
             int counter = i / (360 / rotationFactor);
             if ((i * rotationFactor) >= 360) {
@@ -185,9 +182,18 @@ public class DiSPIM_Animation {
         FolderOpener fo = new FolderOpener();
         ImagePlus img = fo.openFolder(directory + File.separator + "animation" + File.separator);
         ImagePlus hyp = HyperStackConverter.toHyperStack(img, 2, 1, img.getStack().getSize() / 2);
-        IJ.run(hyp, "neon-red", null);
-        hyp.setC(2);
-        IJ.run(hyp, "Green Fire Blue", null);
+        
+//        LUT l1 = LutLoader.openLut("/nfs/waterston/pete/luts/GreenFireBlue.lut");
+//        LUT l2 = LutLoader.openLut("/nfs/waterston/pete/luts/neon-red.lut");
+//
+//        for (int i = 1; i <= hyp.getNFrames(); i++) {
+//            hyp.setT(i);
+//            hyp.setC(2);
+//            ImageProcessor ip = hyp.getProcessor();
+//            ip.setLut(l1);
+//        }
+        
+
         FileSaver fin = new FileSaver(hyp);
         fin.saveAsTiffStack(directory + File.separator + "animation" + File.separator + "anim_hyperstack.tif");   
 
@@ -239,6 +245,5 @@ public class DiSPIM_Animation {
         o.createLine(D, H, maxIntensity, rad);
         o.createLine(B, F, maxIntensity, rad);
         o.createLine(C, G, maxIntensity, rad);
-
     }
 }
